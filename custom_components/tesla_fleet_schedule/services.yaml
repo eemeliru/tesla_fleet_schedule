@@ -1,0 +1,120 @@
+add_charge_schedule:
+  name: Add charge schedule
+  description: Add or update a Tesla charging schedule using the existing Tesla Fleet integration.
+  fields:
+    vehicle:
+      name: Vehicle
+      description: Tesla vehicle device from the Tesla Fleet integration.
+      required: true
+      selector:
+        device:
+          integration: tesla_fleet
+    start_time:
+      name: Start time
+      description: Local vehicle time at which charging should start. HH:MM.
+      required: false
+      selector:
+        time:
+    end_time:
+      name: End time
+      description: Local vehicle time at which charging should end. HH:MM.
+      required: false
+      selector:
+        time:
+    days_of_week:
+      name: Days of week
+      description: Days this schedule should run. Leave empty to automatically pick the next occurrence of start_time (or end_time if start_time isn't set).
+      required: false
+      selector:
+        select:
+          multiple: true
+          options:
+            - "Monday"
+            - "Tuesday"
+            - "Wednesday"
+            - "Thursday"
+            - "Friday"
+            - "Saturday"
+            - "Sunday"
+    one_time:
+      name: One time
+      description: If this is a one-time schedule (schedule is not repeated).
+      required: false
+      default: true
+      selector:
+        boolean:
+    enabled:
+      name: Enabled
+      description: Whether the schedule is enabled.
+      required: false
+      default: true
+      selector:
+        boolean:
+    schedule_id:
+      name: Schedule ID
+      description: Existing Tesla schedule ID to update. Leave empty to create a new schedule.
+      required: false
+      selector:
+        number:
+          mode: box
+          min: 0
+    latitude:
+      name: Latitude
+      description: Location for which the schedule applies. Defaults to Home Assistant latitude.
+      required: false
+      selector:
+        number:
+          mode: box
+          step: any
+    longitude:
+      name: Longitude
+      description: Location for which the schedule applies. Defaults to Home Assistant longitude.
+      required: false
+      selector:
+        number:
+          mode: box
+          step: any
+
+remove_charge_schedule:
+  name: Remove charge schedule
+  description: Remove a Tesla charging schedule by its Tesla schedule ID.
+  fields:
+    vehicle:
+      name: Vehicle
+      description: Tesla vehicle device from the Tesla Fleet integration.
+      required: true
+      selector:
+        device:
+          integration: tesla_fleet
+    schedule_id:
+      name: Schedule ID
+      description: Tesla schedule ID to remove.
+      required: true
+      selector:
+        number:
+          mode: box
+          min: 0
+
+wake_up:
+  name: Wake up
+  description: Send a wake_up command to a Tesla vehicle via the Tesla Fleet integration. Wake-up time is inconsistent, so this is a separate service from add/remove.
+  fields:
+    vehicle:
+      name: Vehicle
+      description: Tesla vehicle device from the Tesla Fleet integration.
+      required: true
+      selector:
+        device:
+          integration: tesla_fleet
+
+get_charge_schedule_data:
+  name: Get charge schedule data
+  description: Fetch the vehicle's current charge_schedule_data via the Tesla vehicle_data endpoint.
+  fields:
+    vehicle:
+      name: Vehicle
+      description: Tesla vehicle device from the Tesla Fleet integration.
+      required: true
+      selector:
+        device:
+          integration: tesla_fleet

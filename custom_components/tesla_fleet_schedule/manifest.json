@@ -1,0 +1,16 @@
+{
+    "domain": "tesla_fleet_schedule",
+    "name": "Tesla Fleet Schedule",
+    "version": "1.0.0",
+    "codeowners": [
+        "@eemeliru"
+    ],
+    "config_flow": true,
+    "dependencies": [
+        "tesla_fleet"
+    ],
+    "documentation": "https://github.com/eemeliru/tesla_fleet_schedule",
+    "integration_type": "service",
+    "iot_class": "cloud_polling",
+    "issue_tracker": "https://github.com/eemeliru/tesla_fleet_schedule/issues"
+}

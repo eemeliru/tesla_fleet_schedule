@@ -1,0 +1,13 @@
+{
+    "title": "Tesla Fleet Schedule",
+    "config": {
+        "step": {
+            "user": {
+                "description": "Set up Tesla Fleet Schedule. This integration reuses vehicles from the official Tesla Fleet integration."
+            }
+        },
+        "abort": {
+            "already_configured": "Tesla Fleet Schedule is already configured."
+        }
+    }
+}
