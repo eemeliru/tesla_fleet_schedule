@@ -6,12 +6,17 @@ from datetime import time, timedelta
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components.tesla_fleet.models import TeslaFleetData
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+)
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ATTR_DAYS_OF_WEEK,
@@ -34,12 +39,20 @@ from .const import (
     WEEKDAY_NAMES,
 )
 
+TESLA_DEVICE_IDENTIFIER_PARTS = 2
+LATITUDE_MIN = -90
+LATITUDE_MAX = 90
+LONGITUDE_MIN = -180
+LONGITUDE_MAX = 180
+
 ADD_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_VEHICLE): cv.string,
         vol.Optional(ATTR_START_TIME): cv.time,
         vol.Optional(ATTR_END_TIME): cv.time,
-        vol.Optional(ATTR_DAYS_OF_WEEK): vol.All(cv.ensure_list, [vol.In(WEEKDAY_NAMES)]),
+        vol.Optional(ATTR_DAYS_OF_WEEK): vol.All(
+            cv.ensure_list, [vol.In(WEEKDAY_NAMES)]
+        ),
         vol.Optional(ATTR_ONE_TIME, default=True): cv.boolean,
         vol.Optional(ATTR_ENABLED, default=True): cv.boolean,
         vol.Optional(ATTR_SCHEDULE_ID): vol.All(vol.Coerce(int), vol.Range(min=0)),
@@ -77,17 +90,22 @@ def _vehicle_from_device(hass: HomeAssistant, device_id: str) -> tuple[Any, str]
     """Find a Tesla Fleet vehicle API object from a HA device ID."""
     device = dr.async_get(hass).async_get(device_id)
     if device is None:
-        raise HomeAssistantError(f"Unknown Home Assistant device: {device_id}")
+        message = f"Unknown Home Assistant device: {device_id}"
+        raise HomeAssistantError(message)
 
     vins = {
         identifier[1]
         for identifier in device.identifiers
-        if identifier[0] == TESLA_DOMAIN and len(identifier) == 2 and identifier[1]
+        if identifier[0] == TESLA_DOMAIN
+        and len(identifier) == TESLA_DEVICE_IDENTIFIER_PARTS
+        and identifier[1]
     }
     if not vins:
-        raise HomeAssistantError("The selected device is not a Tesla Fleet vehicle.")
+        message = "The selected device is not a Tesla Fleet vehicle."
+        raise HomeAssistantError(message)
     if len(vins) != 1:
-        raise HomeAssistantError("The selected device maps to multiple Tesla VINs.")
+        message = "The selected device maps to multiple Tesla VINs."
+        raise HomeAssistantError(message)
 
     vin = next(iter(vins))
 
@@ -99,18 +117,20 @@ def _vehicle_from_device(hass: HomeAssistant, device_id: str) -> tuple[Any, str]
             if vehicle.vin == vin:
                 return vehicle.api, vin
 
-    raise HomeAssistantError(
+    message = (
         "The Tesla Fleet config entry containing the selected vehicle is not loaded."
     )
+    raise HomeAssistantError(message)
 
 
-async def _async_ensure_awake(hass: HomeAssistant, vehicle: Any, vin: str) -> None:
+async def _async_ensure_awake(_hass: HomeAssistant, vehicle: Any, vin: str) -> None:
     """Send a wake_up command to the vehicle via Tesla Fleet."""
     LOGGER.debug("Waking up %s", vin)
     try:
         await vehicle.wake_up()
     except Exception as err:
-        raise HomeAssistantError(f"Failed to wake up Tesla vehicle {vin}: {err}") from err
+        message = f"Failed to wake up Tesla vehicle {vin}: {err}"
+        raise HomeAssistantError(message) from err
 
 
 def _get_location(hass: HomeAssistant, data: dict[str, Any]) -> tuple[float, float]:
@@ -119,14 +139,18 @@ def _get_location(hass: HomeAssistant, data: dict[str, Any]) -> tuple[float, flo
     lon = data.get(ATTR_LONGITUDE, hass.config.longitude)
 
     if lat is None or lon is None:
-        raise HomeAssistantError(
-            "Latitude/longitude were not supplied and Home Assistant has no configured location."
+        message = (
+            "Latitude/longitude were not supplied and Home Assistant has no "
+            "configured location."
         )
+        raise HomeAssistantError(message)
 
-    if not -90 <= lat <= 90:
-        raise HomeAssistantError("Latitude must be between -90 and 90.")
-    if not -180 <= lon <= 180:
-        raise HomeAssistantError("Longitude must be between -180 and 180.")
+    if not LATITUDE_MIN <= lat <= LATITUDE_MAX:
+        message = "Latitude must be between -90 and 90."
+        raise HomeAssistantError(message)
+    if not LONGITUDE_MIN <= lon <= LONGITUDE_MAX:
+        message = "Longitude must be between -180 and 180."
+        raise HomeAssistantError(message)
 
     return float(lat), float(lon)
 
@@ -136,9 +160,8 @@ async def _async_add(call: ServiceCall) -> None:
     data = call.data
 
     if ATTR_START_TIME not in data and ATTR_END_TIME not in data:
-        raise HomeAssistantError(
-            "At least one of start_time or end_time must be supplied."
-        )
+        message = "At least one of start_time or end_time must be supplied."
+        raise HomeAssistantError(message)
 
     vehicle, vin = _vehicle_from_device(hass=call.hass, device_id=data[ATTR_VEHICLE])
     lat, lon = _get_location(call.hass, data)
@@ -151,8 +174,6 @@ async def _async_add(call: ServiceCall) -> None:
         for day in data[ATTR_DAYS_OF_WEEK]:
             days_of_week |= DAY_BITS[day]
     else:
-        from homeassistant.util import dt as dt_util
-
         now = dt_util.now()
         now_minutes = now.hour * 60 + now.minute
         reference_minutes = start_minutes if start_minutes is not None else end_minutes
@@ -183,9 +204,8 @@ async def _async_add(call: ServiceCall) -> None:
         result = await vehicle.add_charge_schedule(**kwargs)
     except Exception as err:
         LOGGER.exception("Failed to add Tesla charge schedule for %s", vin)
-        raise HomeAssistantError(
-            f"Tesla charge schedule command failed for {vin}: {err}"
-        ) from err
+        message = f"Tesla charge schedule command failed for {vin}: {err}"
+        raise HomeAssistantError(message) from err
 
     LOGGER.debug("Tesla charge schedule result for %s: %s", vin, result)
 
@@ -199,9 +219,8 @@ async def _async_remove(call: ServiceCall) -> None:
         result = await vehicle.remove_charge_schedule(data[ATTR_SCHEDULE_ID])
     except Exception as err:
         LOGGER.exception("Failed to remove Tesla charge schedule for %s", vin)
-        raise HomeAssistantError(
-            f"Tesla charge schedule removal failed for {vin}: {err}"
-        ) from err
+        message = f"Tesla charge schedule removal failed for {vin}: {err}"
+        raise HomeAssistantError(message) from err
 
     LOGGER.debug("Tesla charge schedule removal result for %s: %s", vin, result)
 
@@ -222,9 +241,8 @@ async def _async_get_charge_schedule(call: ServiceCall) -> ServiceResponse:
         result = await vehicle.vehicle_data(endpoints=["charge_schedule_data"])
     except Exception as err:
         LOGGER.exception("Failed to get Tesla charge_schedule_data for %s", vin)
-        raise HomeAssistantError(
-            f"Tesla vehicle_data request failed for {vin}: {err}"
-        ) from err
+        message = f"Tesla vehicle_data request failed for {vin}: {err}"
+        raise HomeAssistantError(message) from err
 
     charge_schedule_data = result.get("response", {}).get("charge_schedule_data", {})
     LOGGER.debug("Tesla charge_schedule_data for %s: %s", vin, charge_schedule_data)
